@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WatermarkRemover 产品重设计方案 v1</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#ffffff; --ink:#1c2333; --ink2:#3d4a63; --mut:#7a8499;
+    --line:#e3e9f2; --line2:#eef2f8; --accent:#2e6bff; --accent-bg:#eef3ff;
+    --warn:#c2410c; --warn-bg:#fff5ed; --danger:#b42318; --danger-bg:#fef3f2;
+    --ok:#087443; --ok-bg:#ecfdf3;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif;
+    font-size:14.5px; line-height:1.78; -webkit-font-smoothing:antialiased;
+  }
+  .layout{display:flex; align-items:flex-start; max-width:1400px; margin:0 auto}
+  /* ---------- 侧边目录 ---------- */
+  nav{
+    position:sticky; top:0; width:262px; flex:0 0 262px; height:100vh; overflow-y:auto;
+    padding:26px 18px 40px 26px; border-right:1px solid var(--line); background:var(--card);
+  }
+  nav .brand{font-size:13px; font-weight:700; letter-spacing:.06em; color:var(--accent); text-transform:uppercase}
+  nav .v{font-size:12px; color:var(--mut); margin:4px 0 18px}
+  nav a{display:block; padding:4px 0 4px 10px; color:var(--ink2); text-decoration:none;
+        font-size:13.2px; border-left:2px solid transparent; line-height:1.5}
+  nav a:hover{color:var(--accent); border-left-color:var(--accent); background:#f8faff}
+  nav a.sub{padding-left:22px; font-size:12.6px; color:var(--mut)}
+  /* ---------- 正文 ---------- */
+  main{flex:1 1 auto; min-width:0; padding:40px 46px 90px}
+  header.hero{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:30px 34px; margin-bottom:26px}
+  header.hero .kicker{font-size:12.5px; letter-spacing:.08em; color:var(--accent); font-weight:700}
+  header.hero h1{margin:8px 0 8px; font-size:29px; line-height:1.35; letter-spacing:-.2px}
+  header.hero .lede{color:var(--ink2); font-size:15px; margin:0}
+  .meta{display:flex; flex-wrap:wrap; gap:8px 26px; margin-top:20px; padding-top:16px; border-top:1px dashed var(--line)}
+  .meta div{font-size:12.5px; color:var(--mut)}
+  .meta b{color:var(--ink2); font-weight:600}
+  section{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:28px 32px; margin-bottom:22px}
+  h2{font-size:20px; margin:0 0 6px; letter-spacing:-.2px; display:flex; align-items:center; gap:10px}
+  h2 .no{flex:0 0 auto; width:26px; height:26px; border-radius:7px; background:var(--accent);
+         color:#fff; font-size:13px; display:inline-flex; align-items:center; justify-content:center; font-weight:700}
+  h2 + .h2sub{color:var(--mut); font-size:13px; margin:0 0 20px; padding-left:36px}
+  h3{font-size:15.5px; margin:26px 0 10px; padding-left:10px; border-left:3px solid var(--accent); line-height:1.3}
+  h4{font-size:14px; margin:18px 0 8px; color:var(--ink2)}
+  p{margin:9px 0}
+  ul,ol{margin:9px 0; padding-left:22px}
+  li{margin:5px 0}
+  strong{color:var(--ink); font-weight:650}
+  code{font-family:"Cascadia Code",Consolas,monospace; font-size:12.6px; background:#f3f6fb;
+       border:1px solid var(--line2); border-radius:4px; padding:1px 5px; color:#1f3a68}
+  /* ---------- 表格 ---------- */
+  .tw{overflow-x:auto; margin:12px 0 6px; border:1px solid var(--line); border-radius:10px}
+  table{width:100%; border-collapse:collapse; font-size:13.1px; line-height:1.62; background:var(--card)}
+  th{background:#f7f9fd; color:var(--ink2); font-weight:650; text-align:left; padding:9px 12px;
+     border-bottom:1px solid var(--line); white-space:nowrap; font-size:12.7px}
+  td{padding:9px 12px; border-bottom:1px solid var(--line2); vertical-align:top; color:var(--ink2)}
+  tr:last-child td{border-bottom:0}
+  tbody tr:nth-child(even){background:#fbfcfe}
+  td.nw{white-space:nowrap}
+  /* ---------- 徽标 ---------- */
+  .b{display:inline-block; padding:1px 8px; border-radius:20px; font-size:11.6px; font-weight:650;
+     white-space:nowrap; border:1px solid transparent; line-height:1.7}
+  .b-must{background:#fef3f2; color:#b42318; border-color:#fbd5d1}
+  .b-should{background:#fff7e8; color:#a15c00; border-color:#f7e0b5}
+  .b-could{background:#f2f4f8; color:#5b6779; border-color:#e2e8f1}
+  .b-high{background:#fef3f2; color:#b42318; border-color:#fbd5d1}
+  .b-mid{background:#fff7e8; color:#a15c00; border-color:#f7e0b5}
+  .b-low{background:#ecfdf3; color:#087443; border-color:#cdeedd}
+  .b-keep{background:#ecfdf3; color:#087443; border-color:#cdeedd}
+  .b-hide{background:#f2f4f8; color:#5b6779; border-color:#e2e8f1}
+  .b-new{background:var(--accent-bg); color:#1d4ed8; border-color:#d3e0ff}
+  .b-cut{background:#fef3f2; color:#b42318; border-color:#fbd5d1}
+  /* ---------- 提示块 ---------- */
+  .call{border-radius:10px; padding:14px 16px; margin:14px 0; font-size:13.4px; border:1px solid}
+  .call p{margin:4px 0}
+  .call .t{font-weight:700; font-size:12.8px; letter-spacing:.03em; margin-bottom:4px; display:block}
+  .call-accent{background:var(--accent-bg); border-color:#d3e0ff} .call-accent .t{color:#1d4ed8}
+  .call-warn{background:var(--warn-bg); border-color:#fadfc8} .call-warn .t{color:var(--warn)}
+  .call-ok{background:var(--ok-bg); border-color:#cdeedd} .call-ok .t{color:var(--ok)}
+  .call-danger{background:var(--danger-bg); border-color:#fbd5d1} .call-danger .t{color:var(--danger)}
+  /* ---------- 结论卡 ---------- */
+  .summary{background:linear-gradient(180deg,#f7faff 0%,#ffffff 100%); border:1px solid #d9e4ff;
+           border-radius:12px; padding:20px 24px; margin:0 0 8px}
+  .summary ol{margin:8px 0 0; padding-left:20px}
+  .summary li{margin:7px 0; color:var(--ink2)}
+  .summary li b{color:var(--ink)}
+  /* ---------- 流程条 ---------- */
+  .flow{display:flex; flex-wrap:wrap; align-items:stretch; gap:0; margin:16px 0 6px}
+  .step{flex:1 1 150px; min-width:140px; background:#f8faff; border:1px solid #dfe8fb; border-radius:10px;
+        padding:12px 13px; position:relative}
+  .step .n{font-size:11px; font-weight:700; color:var(--accent); letter-spacing:.06em}
+  .step .h{font-weight:650; font-size:13.4px; margin:2px 0 3px}
+  .step .d{font-size:12.2px; color:var(--mut); line-height:1.55}
+  .arrow{flex:0 0 22px; display:flex; align-items:center; justify-content:center; color:#b9c8e6; font-size:14px}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+  .box{border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:#fcfdff}
+  .box h5{margin:0 0 6px; font-size:13.4px; color:var(--ink)}
+  .box ul{margin:4px 0; padding-left:18px; font-size:13px; color:var(--ink2)}
+  .kv{font-size:12.7px; color:var(--mut)}
+  .kv b{color:var(--ink2)}
+  .foot{margin-top:26px; padding:18px 22px; border-top:1px solid var(--line); color:var(--mut); font-size:12.4px; text-align:center}
+  @media (max-width:1080px){
+    nav{display:none} main{padding:22px 16px 60px} .grid2{grid-template-columns:1fr}
+    section{padding:22px 18px} header.hero{padding:24px 20px}
+  }
+  @media print{
+    nav{display:none} body{background:#fff; font-size:11pt}
+    section,header.hero{break-inside:avoid; border:none; box-shadow:none; padding:0 0 14pt; margin-bottom:12pt}
+    .tw{overflow:visible} main{padding:0}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <div class="brand">WatermarkRemover</div>
+  <div class="v">产品重设计方案 · v1 · 2026-10-20</div>
+  <a href="#s0">结论先行</a>
+  <a href="#s1">1　审计范围与依据</a>
+  <a href="#s2">2　现状盘点</a>
+  <a href="#s2-1" class="sub">2.1 产品形态</a>
+  <a href="#s2-2" class="sub">2.2 技术资产矩阵</a>
+  <a href="#s2-3" class="sub">2.3 现状用户旅程</a>
+  <a href="#s2-4" class="sub">2.4 问题清单</a>
+  <a href="#s3">3　重新定位</a>
+  <a href="#s3-1" class="sub">3.1 目标用户与 JTBD</a>
+  <a href="#s3-2" class="sub">3.2 价值主张</a>
+  <a href="#s3-3" class="sub">3.3 三条路线选型</a>
+  <a href="#s4">4　需求梳理</a>
+  <a href="#s5">5　产品方案设计</a>
+  <a href="#s5-1" class="sub">5.1 信息架构</a>
+  <a href="#s5-2" class="sub">5.2 目标流程</a>
+  <a href="#s5-3" class="sub">5.3 关键页面</a>
+  <a href="#s5-4" class="sub">5.4 五个产品决策</a>
+  <a href="#s5-5" class="sub">5.5 算法资产处置</a>
+  <a href="#s6">6　指标与口径</a>
+  <a href="#s7">7　版本规划与 MVP</a>
+  <a href="#s8">8　依赖与就绪度</a>
+  <a href="#s9">9　风险登记册</a>
+  <a href="#s10">10　合规与边界</a>
+  <a href="#s11">11　验收标准与 RTM</a>
+  <a href="#s12">12　待决策事项</a>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="kicker">产品重设计方案 · 内部评审稿</div>
+  <h1>从「算法实验台」到「水印清理工作台」<br>WatermarkRemover 产品重设计</h1>
+  <p class="lede">基于桌面现有代码（约 6,966 行，v1.0.0，PyInstaller 安装包 102 MB）的完整审计，重新定义产品定位、用户路径、功能边界与迭代路线。核心判断：<b>算法已经是资产，产品还不是。</b></p>
+  <div class="meta">
+    <div><b>审计对象</b>　D:\...\Desktop\WatermarkRemover</div>
+    <div><b>代码规模</b>　wmremove 10 模块 + 测试 + 打包</div>
+    <div><b>版本</b>　__version__ = 1.0.0</div>
+    <div><b>文档版本</b>　v1 / 2026-10-20</div>
+    <div><b>作者</b>　司南（产品经理 Agent）</div>
+  </div>
+</header>
+
+<section id="s0">
+  <h2><span class="no">0</span>结论先行</h2>
+  <p class="h2sub">如果只读一段，读这里。</p>
+  <div class="summary">
+    <ol>
+      <li><b>真实优势在算法，不在界面。</b>淡入水印层配对、仿射分离、静态层替换（ECC 对齐 + 运动补偿 + 内容门控）这套视频时序方案，是市面上多数在线工具不具备的能力；tkinter 单窗口 + 7 项参数下拉则把它藏了起来。</li>
+      <li><b>当前是"开发者视角成品"，不是"用户视角产品"。</b>一次处理要经过 8 个动作、面对 4 个数值输入 + 3 个开关 + 1 个算法下拉；预览只看单帧、失败只弹 <code>str(e)</code>、没有撤销/取消/批量报告。</li>
+      <li><b>最大战略负担是 1,060 行的平台下载器。</b>抖音 ttwid、小红书 INITIAL_STATE、快手 GraphQL、B 站 API 都是站点逆向逻辑：合规风险高、随改版失效、维护成本吃掉迭代预算。建议降级为默认关闭的可选模块。</li>
+      <li><b>重设计主线：一键默认 + 渐进披露 + 结果可自证。</b>用户只需要「拖入 → 处理 → 对比 → 导出」；只有当系统判断"这一处可能没干净"时，才把参数和区域控制交出来。</li>
+      <li><b>产品质量线先立起来，功能后加。</b>把内部已有的色差/接缝比/时序覆盖率翻译成用户能懂的"质量小结 + 风险位置"，并给出「再试一次（更强/更保守）」，比新增十个算法更能提升一次通过率。</li>
+    </ol>
+  </div>
+</section>
+
+<section id="s1">
+  <h2><span class="no">1</span>审计范围与依据</h2>
+  <p class="h2sub">本方案的每条判断都能回到代码或产物，不凭印象。</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th>审计对象</th><th>规模</th><th>读到的关键事实</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><code>README.md</code></td><td class="nw">199 行</td><td>面向开发者的能力说明；已包含算法原理、参数速查、打包命令；无版本号、无隐私说明、无使用边界声明</td></tr>
+      <tr><td class="nw"><code>wmremove/gui.py</code></td><td class="nw">950 行</td><td>单个 <code>App</code> 类承载全部界面：1280×860 固定布局、三栏（工具/画布/日志）、自绘 Toggle；无撤销、无处理取消、无拖拽导入、无高 DPI 适配</td></tr>
+      <tr><td class="nw"><code>wmremove/engine.py</code></td><td class="nw">1,014 行</td><td>掩码构建 + 时序方案选择 + 编码调度 + 质量报告混在一个模块；<code>build_mask</code> 内嵌大量"实测某视频"的经验分支</td></tr>
+      <tr><td class="nw"><code>wmremove/temporal.py</code></td><td class="nw">853 行</td><td>三套时序方案 + ECC 对齐 + 稳定帧窗搜索；<code>auto_plan</code> 有明确的优先级与覆盖率放弃阈值</td></tr>
+      <tr><td class="nw"><code>wmremove/methods.py</code></td><td class="nw">617 行</td><td>11 种空间修复 + <code>auto</code> 按"细长比/面积/周边纹理"选路；小掩码自动裁剪提速</td></tr>
+      <tr><td class="nw"><code>wmremove/detect.py</code></td><td class="nw">295 行</td><td>19 组平台/AI 位置先验（<code>KNOWN</code> 字典硬编码在源码）+ 四角/全扫描 + 内容分析紧致化</td></tr>
+      <tr><td class="nw"><code>wmremove/downloader.py</code></td><td class="nw">1,060 行</td><td>9 类平台的专用解析 + cookie 兜底 + 无头浏览器；全项目最大的单文件，也是最易失效的模块</td></tr>
+      <tr><td class="nw"><code>wmremove/cli.py</code></td><td class="nw">313 行</td><td>remove / detect / download / batch / gui / selftest 六个子命令，40+ 参数</td></tr>
+      <tr><td class="nw"><code>tests/</code></td><td class="nw">337 行</td><td>合成真值 PSNR 自测 + 多平台抽帧对比回归；<b>只在开发者侧运行</b>，不计入产品体验</td></tr>
+      <tr><td class="nw"><code>packaging/</code></td><td class="nw">421 行</td><td>自研 Tk 安装向导 + 独立卸载器；产物 102 MB（含 ffmpeg + yt-dlp）；无自动更新通道</td></tr>
+      <tr><td class="nw">Git 仓库</td><td class="nw">—</td><td><b>master 分支 0 个提交</b>：目录已初始化但从未提交，无版本追溯、无法回滚</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="call call-warn">
+    <span class="t">审计限制</span>
+    <p>本次只做静态代码与产物审计，未做真实用户访谈，也未在 4K/长视频上做耗时实测。文档中涉及性能与命中率的数值均为<b>待验证的目标值</b>，已标注「目标」，不作现状结论。</p>
+  </div>
+</section>
+
+<section id="s2">
+  <h2><span class="no">2</span>现状盘点</h2>
+  <p class="h2sub">先把"已经有什么"说清楚，再谈"应该变成什么"。</p>
+
+  <h3 id="s2-1">2.1 产品形态</h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th>维度</th><th>现状</th><th>产品化缺口</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">形态</td><td>Windows 桌面工具，onedir 打包，自带 ffmpeg</td><td>仅 Windows x64；无 macOS / 便携版</td></tr>
+      <tr><td class="nw">入口</td><td>桌面快捷方式 → GUI；另有 <code>start_gui.bat</code> 与 CLI</td><td>三个入口三套心智；GUI 与 CLI 能力不对等（批量只在 CLI）</td></tr>
+      <tr><td class="nw">分发</td><td>自研安装器 → <code>%LOCALAPPDATA%\Programs\WatermarkRemover</code>，写注册表卸载项</td><td>无更新检查、无版本提示；用户拿到新版只能重装</td></tr>
+      <tr><td class="nw">命名</td><td>README「通用去水印工具」/ 窗口「去水印工具」/ 安装器「WatermarkRemover 去水印工具」</td><td>品牌名不统一，用户无法形成稳定认知</td></tr>
+      <tr><td class="nw">语言</td><td>全中文硬编码在 UI 与日志里</td><td>无 i18n 资源层，后续国际化需重写文案层</td></tr>
+      <tr><td class="nw">数据</td><td>纯本地处理，不上传、不联网（除下载模块）</td><td><b>这是强卖点，但界面上完全没有表达</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3 id="s2-2">2.2 技术资产矩阵（已有能力，按产品价值排序）</h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th>能力域</th><th>已实现</th><th>代码位置</th><th>用户可见</th><th>产品价值</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">视频时序去除</td><td>淡入层配对 / 仿射分离 / 静态层替换（ECC 对齐、运动补偿、内容门控、暗结构保护）</td><td class="nw">temporal.py</td><td>间接（只看到一个开关）</td><td><span class="b b-keep">核心差异化</span></td></tr>
+      <tr><td class="nw">紧致掩码</td><td>多帧投票只修笔画；不透明贴片按连通域回退整框；框外笔画延续自动并入</td><td class="nw">engine.build_mask</td><td>开关「紧致掩码」</td><td><span class="b b-keep">核心差异化</span></td></tr>
+      <tr><td class="nw">空间修复</td><td>Telea / NS / harmonic / side / vertical / horizontal / texture / patch-synth / clone / blur / pixelate / dark + auto 选路</td><td class="nw">methods.py</td><td>7 项下拉</td><td><span class="b b-keep">质量底座</span></td></tr>
+      <tr><td class="nw">颜色一致性</td><td>低频对齐 + 电平对齐 + 自检保护（变差则放弃）+ 颗粒匹配</td><td class="nw">colorfit.py</td><td>开关</td><td><span class="b b-keep">"无痕"关键</span></td></tr>
+      <tr><td class="nw">自动定位</td><td>19 组平台/AI 位置先验 + 四角/全扫描 + 内容分析精修框</td><td class="nw">detect.py</td><td>「自动检测」弹窗</td><td><span class="b b-mid">降低门槛</span></td></tr>
+      <tr><td class="nw">区域标注</td><td>矩形 / 椭圆 / 多边形 / 涂抹 / 外部 PNG 掩码 / JSON 存取 / 相对坐标</td><td class="nw">shapes.py + gui</td><td>完整</td><td><span class="b b-keep">必备</span></td></tr>
+      <tr><td class="nw">编码管线</td><td>ffmpeg 帧管道、音频直通、CRF 可调、旋转元数据处理</td><td class="nw">media.py</td><td>否</td><td><span class="b b-keep">必备</span></td></tr>
+      <tr><td class="nw">质量度量</td><td>色差 / 灰度差 / 接缝比 / PSNR 自测 / 抽帧回归</td><td class="nw">colorfit + tests</td><td>仅日志数字</td><td><span class="b b-new">未变现的资产</span></td></tr>
+      <tr><td class="nw">批处理</td><td>目录遍历 + 相对坐标复用</td><td class="nw">cli.batch</td><td>仅 CLI</td><td><span class="b b-mid">待产品化</span></td></tr>
+      <tr><td class="nw">平台下载</td><td>抖音 / 小红书 / B 站 / 快手 / 视频号 / 爱奇艺 / 优酷 / 腾讯视频 / 直链 + 浏览器 cookie</td><td class="nw">downloader.py</td><td>「打开链接」</td><td><span class="b b-cut">高负担</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="call call-ok">
+    <span class="t">值得保留的判断</span>
+    <p>这套算法在"AI 生成内容 + 半透明淡入水印 + 大面积静态贴片"三类最难场景上都有专门方案，且带自检放弃机制。这不是靠调一个开源 inpaint 能追上的东西——重设计必须<b>围绕它做产品</b>，而不是把它当实现细节。</p>
+  </div>
+
+  <h3 id="s2-3">2.3 现状用户旅程（AS-IS，8 步）</h3>
+  <div class="flow">
+    <div class="step"><div class="n">STEP 1</div><div class="h">打开文件</div><div class="d">点「打开文件」或在弹窗里选目录；不支持拖入</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">STEP 2</div><div class="h">找水印</div><div class="d">手动拖框，或进「自动检测」弹窗选 19 个平台中的一个</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">STEP 3</div><div class="h">调参数</div><div class="d">掩码扩张 / 羽化 / 补颗粒 + 3 个开关 + 算法下拉</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">STEP 4</div><div class="h">预览单帧</div><div class="d">只看当前帧，看不出运动段是否闪烁</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">STEP 5</div><div class="h">处理</div><div class="d">进度条轮询，无剩余时间、无取消</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">STEP 6</div><div class="h">保存</div><div class="d">弹保存框；输出名 <code>_no_watermark</code>；不许覆盖源文件</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">STEP 7</div><div class="h">自己判断</div><div class="d">日志给"色差 3.21 / 台阶 0.84"，用户不知道算不算好</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">STEP 8</div><div class="h">不满意重来</div><div class="d">回到 STEP 3 猜参数；无"再试一次"路径</div></div>
+  </div>
+  <p class="kv">摩擦点合计：<b>8 个必要动作</b>、<b>8 个需要理解的技术参数</b>、<b>零次"系统告诉我这样行不行"</b>。</p>
+
+  <h3 id="s2-4">2.4 问题清单（按性质归四类，附代码证据）</h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th style="width:52px">编号</th><th style="width:88px">类别</th><th>问题</th><th>证据</th><th style="width:64px">影响</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">P-01</td><td class="nw">体验</td><td>参数过早暴露：首次使用即面对 4 个数值、3 个开关、7 项算法下拉</td><td><code>gui.py</code> 参数面板 <code>lf2</code> / <code>lf2b</code></td><td><span class="b b-high">高</span></td></tr>
+      <tr><td class="nw">P-02</td><td class="nw">体验</td><td>结果不可自证：预览只渲染单帧，无 A/B 连续对比；质量以开发者指标呈现</td><td><code>preview()</code> → <code>repair_image</code> 单帧；日志输出「色差/边界台阶」</td><td><span class="b b-high">高</span></td></tr>
+      <tr><td class="nw">P-03</td><td class="nw">体验</td><td>失败无归因：异常统一 <code>messagebox.showerror("处理失败", str(e))</code></td><td><code>_done()</code> / <code>work()</code></td><td><span class="b b-high">高</span></td></tr>
+      <tr><td class="nw">P-04</td><td class="nw">体验</td><td>无撤销、无处理取消/暂停、无拖拽导入、无快捷键提示</td><td>全文件检索无 undo / cancel 处理路径</td><td><span class="b b-mid">中</span></td></tr>
+      <tr><td class="nw">P-05</td><td class="nw">体验</td><td>长视频无预期管理：进度为帧数轮询，无剩余时间估算</td><td><code>start_process()</code> 的 <code>poll()</code></td><td><span class="b b-mid">中</span></td></tr>
+      <tr><td class="nw">P-06</td><td class="nw">产品</td><td>批量能力只在 CLI，GUI 用户完全触达不到</td><td><code>cmd_batch</code> 仅 argparse 入口</td><td><span class="b b-high">高</span></td></tr>
+      <tr><td class="nw">P-07</td><td class="nw">产品</td><td>自动检测先验硬编码在源码：新平台/改版必须发版</td><td><code>detect.py</code> 的 <code>KNOWN</code> 常量</td><td><span class="b b-mid">中</span></td></tr>
+      <tr><td class="nw">P-08</td><td class="nw">产品</td><td>"本地处理、不上传"这一核心信任点未在任何界面表达</td><td>UI 文案无隐私相关描述</td><td><span class="b b-mid">中</span></td></tr>
+      <tr><td class="nw">P-09</td><td class="nw">工程</td><td>Git 仓库 0 提交，全部改动无版本追溯、无法回滚</td><td><code>git log</code> → empty history</td><td><span class="b b-high">高</span></td></tr>
+      <tr><td class="nw">P-10</td><td class="nw">工程</td><td>巨石模块：<code>gui.py</code> 单类 950 行；<code>engine.py</code> 混合掩码/调度/编码/度量四职责</td><td>文件行数 + 函数分布</td><td><span class="b b-mid">中</span></td></tr>
+      <tr><td class="nw">P-11</td><td class="nw">工程</td><td>经验参数无集中管理：<code>build_mask</code> 内多处"实测某片"魔数（0.6 / 60 / 55 / 16 等）</td><td>注释与阈值散落在函数体内</td><td><span class="b b-mid">中</span></td></tr>
+      <tr><td class="nw">P-12</td><td class="nw">工程</td><td>安装包 102 MB，无更新通道；yt-dlp 版本滞后即导致下载模块整体失效</td><td><code>dist/</code> 体积；<code>requirements.txt</code> 下限锁定</td><td><span class="b b-mid">中</span></td></tr>
+      <tr><td class="nw">P-13</td><td class="nw">合规</td><td>站点逆向下载逻辑（ttwid/SSR/GraphQL）触碰平台规则，且与"去水印"叠加放大版权风险</td><td><code>downloader.py</code> 1,060 行</td><td><span class="b b-high">高</span></td></tr>
+      <tr><td class="nw">P-14</td><td class="nw">合规</td><td>无使用边界声明（"仅处理你拥有权利的内容"仅出现在 README 第 7 行）</td><td>README 首屏；GUI 无提示</td><td><span class="b b-mid">中</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="s3">
+  <h2><span class="no">3</span>重新定位</h2>
+  <p class="h2sub">定位不是写一句 slogan，而是决定"为谁、在什么场景、放弃什么"。</p>
+
+  <h3 id="s3-1">3.1 目标用户与核心任务</h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th style="width:70px">优先级</th><th>用户</th><th>典型场景</th><th>最在意</th><th>可接受的学习成本</th></tr></thead>
+    <tbody>
+      <tr><td><span class="b b-must">P1</span></td><td><b>AI 内容创作者</b><br>用豆包 / 即梦 / 可灵 / Sora 生成视频后要商用或二创</td><td>生成片段带右下角半透明角标，部分还有淡入淡出</td><td>角标必须干净、不留模糊块，不能破坏画面</td><td>几乎为零 → 一键</td></tr>
+      <tr><td><span class="b b-must">P1</span></td><td><b>短视频运营 / 剪辑二创作者</b><br>素材来自平台，需去掉台标与账号贴片</td><td>一次 10–50 条，批量出片；同平台水印位置固定</td><td>批量吞吐、命名规范、失败可重试</td><td>低 → 模板化</td></tr>
+      <tr><td><span class="b b-should">P2</span></td><td><b>电商 / 设计 / 素材整理者</b><br>商品图、截图的角标、半透明字样</td><td>图片为主，单张精修，需要放大检查</td><td>过渡自然、纹理连续、可放大对比</td><td>中 → 精修工具</td></tr>
+      <tr><td><span class="b b-could">P3</span></td><td><b>隐私敏感用户</b><br>不愿把素材上传到在线工具</td><td>内部培训、未公开素材</td><td>纯本地、可断网运行、无账号</td><td>低 → 说明即信任</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4>核心 JTBD（一句话）</h4>
+  <div class="call call-accent">
+    <p><b>「我手上有一段带水印的素材，要在几分钟内得到一段肉眼看不出处理痕迹、可以直接发布的成片，而且它不能离开我的电脑。」</b></p>
+  </div>
+
+  <h3 id="s3-2">3.2 价值主张与差异化</h3>
+  <div class="grid2">
+    <div class="box">
+      <h5>要打的三个点</h5>
+      <ul>
+        <li><b>难的能过</b>：AI 淡入水印、动态背景、大面积贴片——多数在线工具在这三类上会留下鬼影或模糊块</li>
+        <li><b>不用学</b>：拖进来就处理，参数只在需要时出现</li>
+        <li><b>不上传</b>：断网可用，素材不出本机</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h5>明确不打的点</h5>
+      <ul>
+        <li>不做「在线一键去水印」这类流量站，不与免费网站争"最便宜"</li>
+        <li>不做 DRM / 付费会员内容的破解与下载</li>
+        <li>不做通用视频编辑器（剪辑、字幕、转码矩阵）</li>
+      </ul>
+    </div>
+  </div>
+  <h4>能力 → 承诺的翻译表</h4>
+  <div class="tw">
+  <table>
+    <thead><tr><th>技术能力</th><th>用户语言（界面文案方向）</th></tr></thead>
+    <tbody>
+      <tr><td>时序层配对 / 仿射分离</td><td>「水印会淡入淡出？我们用整段视频反推水印层，再逐帧减掉」</td></tr>
+      <tr><td>紧致掩码</td><td>「只修复水印本身那几个像素，不动旁边的画面」</td></tr>
+      <tr><td>静态层替换 + ECC 运动补偿</td><td>「手持拍摄的晃动也跟得住，不会留下鬼影」</td></tr>
+      <tr><td>颜色一致性 + 接缝自检</td><td>「修完会自己比对边缘，如果比原来更明显就换方案」</td></tr>
+      <tr><td>本地 ffmpeg 全流程</td><td>「全部在这台电脑上完成，不上传、不需要账号」</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3 id="s3-3">3.3 三条路线选型</h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th>方案</th><th>思路</th><th>实现成本</th><th>体验</th><th>风险</th><th>结论</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><b>A 精修工作台</b></td><td>以算法深度为卖点，服务"难水印"；一键默认 + 专家面板双层</td><td>中（复用现有算法，重做交互层）</td><td>好</td><td>低（不做站点逆向）</td><td><span class="b b-keep">推荐：产品内核</span></td></tr>
+      <tr><td class="nw"><b>B 一键傻瓜工具</b></td><td>三个按钮走完，隐藏全部参数，只保留"成功率"</td><td>低</td><td>极简</td><td>中：难场景无出路，用户直接流失</td><td><span class="b b-mid">作为 A 的默认层</span></td></tr>
+      <tr><td class="nw"><b>C 下载+去水印一体</b></td><td>当前路径的延长线，用"贴链接就能去"做流量入口</td><td>高（持续逆向维护）</td><td>入口强</td><td>高：平台规则、频繁失效、合规争议</td><td><span class="b b-cut">降级为可选模块，默认关</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="call call-accent">
+    <span class="t">推荐组合</span>
+    <p><b>A 做内核（能力上限）+ B 做默认（首次体验）+ C 降级（默认关闭的可选入口）</b>。这样既保住差异化，又不让新用户面对参数墙，也不把维护预算和合规风险绑在下载器上。</p>
+  </div>
+</section>
+
+<section id="s4">
+  <h2><span class="no">4</span>需求梳理</h2>
+  <p class="h2sub">按 MoSCoW 归档。编号可直接对应到第 11 节 RTM 与后续 PRD。</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th style="width:56px">编号</th><th>需求描述</th><th style="width:66px">类型</th><th style="width:70px">优先级</th><th>成功标准（可验证）</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">R-01</td><td>拖拽文件到窗口即可导入（视频/图片/文件夹）</td><td>功能</td><td><span class="b b-must">Must</span></td><td>拖入 1 个 100 MB mp4 到可操作状态 ≤ 1.5 s</td></tr>
+      <tr><td class="nw">R-02</td><td>「一键去水印」：自动定位 + 自动选算法 + 自动质量自检，全程无需选参数</td><td>功能</td><td><span class="b b-must">Must</span></td><td>从导入到出片 ≤ 3 次点击；默认路径不出现任何技术参数控件</td></tr>
+      <tr><td class="nw">R-03</td><td>结果对比：原片/成片同步播放 + 可拖动分割线 + 单帧 1:1 放大检查</td><td>功能</td><td><span class="b b-must">Must</span></td><td>对比视图可定位到任意时间点；1:1 模式下框选区域可平移查看</td></tr>
+      <tr><td class="nw">R-04</td><td>质量小结：把色差/接缝比/时序覆盖率翻译为"过渡自然 / 边缘略生硬 / 可能留有痕迹"三档 + 位置提示</td><td>功能</td><td><span class="b b-must">Must</span></td><td>每档文案与阈值一一对应，同一结果多次运行结论一致</td></tr>
+      <tr><td class="nw">R-05</td><td>失败归因与「再试一次」：四类归因（贴片不透明 / 背景持续运动 / 水印超框 / 画面活动过大）+ 每类给一个可执行动作</td><td>功能</td><td><span class="b b-must">Must</span></td><td>四类归因均可被现有指标触发；点击「再试一次」无需重新框选</td></tr>
+      <tr><td class="nw">R-06</td><td>处理任务可控：进度 + 剩余时间估算 + 取消（取消后不留半成品文件）</td><td>功能</td><td><span class="b b-should">Should</span></td><td>取消后目标路径不存在残留文件；估算误差 ≤ 30%</td></tr>
+      <tr><td class="nw">R-07</td><td>区域编辑可撤销（Ctrl+Z）+ 键盘操作（Delete 删除 / Esc 取消 / 空格拖拽平移）</td><td>功能</td><td><span class="b b-should">Should</span></td><td>连续 20 次操作可逐步回退至初始状态</td></tr>
+      <tr><td class="nw">R-08</td><td>批量工作台：多文件入队、套用同一模板（区域 + 参数）、逐项状态、失败重试</td><td>功能</td><td><span class="b b-must">Must</span></td><td>20 个文件可在一次操作内入队；单项失败不影响其余</td></tr>
+      <tr><td class="nw">R-09</td><td>批量汇总报告：成功/失败清单 + 每项质量档位，可导出 CSV</td><td>功能</td><td><span class="b b-should">Should</span></td><td>报告行数与入队数一致，缺失项标为失败并带原因</td></tr>
+      <tr><td class="nw">R-10</td><td>输出策略可视化：默认目录 + 命名规则 + 是否覆盖，一次设定全局生效，不再逐次弹保存框</td><td>功能</td><td><span class="b b-should">Should</span></td><td>默认配置下连续处理 5 个文件不弹任何对话框</td></tr>
+      <tr><td class="nw">R-11</td><td>专家面板：折叠收纳现有全部参数（含算法下拉、门控阈值），并标注"改动会影响什么"</td><td>功能</td><td><span class="b b-could">Could</span></td><td>默认收起；展开后所有既有参数均可达</td></tr>
+      <tr><td class="nw">R-12</td><td>平台先验表外置为可编辑配置文件，支持热加载</td><td>技术</td><td><span class="b b-should">Should</span></td><td>新增一个平台位置仅需改 JSON，无需重新打包</td></tr>
+      <tr><td class="nw">R-13</td><td>首次启动引导：三步说明 + 本地处理声明 + 内容权利提示（一次性，可跳过）</td><td>内容</td><td><span class="b b-must">Must</span></td><td>引导可在 10 秒内读完；关闭后不再重复弹出</td></tr>
+      <tr><td class="nw">R-14</td><td>下载模块改为可选组件，默认关闭，启用前须确认权利声明</td><td>功能</td><td><span class="b b-must">Must</span></td><td>默认安装不含站点逆向逻辑；未确认前入口不可用</td></tr>
+      <tr><td class="nw">R-15</td><td>工程基线：纳入 Git 版本管理、参数集中配置、gui/engine 拆分服务层</td><td>技术</td><td><span class="b b-must">Must</span></td><td>每次发版有 tag；界面层不含算法分支</td></tr>
+      <tr><td class="nw">R-16</td><td>高 DPI 感知 + 界面字体缩放</td><td>非功能</td><td><span class="b b-could">Could</span></td><td>150% 缩放下界面不模糊、控件不重叠</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="s5">
+  <h2><span class="no">5</span>产品方案设计</h2>
+  <p class="h2sub">从"一个窗口干所有事"改成"四件事各有一个地方"。</p>
+
+  <h3 id="s5-1">5.1 信息架构</h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th style="width:150px">一级</th><th>承载什么</th><th>关键元素</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><b>工作台（首页）</b></td><td>进来就能开始；也能回到上次的活儿</td><td>拖入区、最近任务（缩略图 + 状态）、模板入口、本地处理声明</td></tr>
+      <tr><td class="nw"><b>编辑</b></td><td>确定"处理哪里"</td><td>画布、区域列表、智能检测、专家面板（收起）</td></tr>
+      <tr><td class="nw"><b>结果</b></td><td>确定"处理得行不行"</td><td>A/B 对比播放器、风险时间轴、质量小结、导出 / 再试一次</td></tr>
+      <tr><td class="nw"><b>队列</b></td><td>批量吞吐</td><td>任务卡片、模板套用、并发控制、汇总报告</td></tr>
+      <tr><td class="nw"><b>设置</b></td><td>一次设定，全局生效</td><td>输出目录与命名、默认质量、性能、可选模块（下载）、隐私与合规</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="kv">层级控制在 2 层以内；从首页到"处理完成"最多 3 次点击；编辑/结果/队列三个页面共享同一个文件对象，不重复导入。</p>
+
+  <h3 id="s5-2">5.2 目标流程（TO-BE）</h3>
+  <h4>主流程：一键（覆盖 80% 场景）</h4>
+  <div class="flow">
+    <div class="step"><div class="n">01</div><div class="h">拖入</div><div class="d">视频/图片/文件夹直接拖进窗口</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">02</div><div class="h">自动识别</div><div class="d">定位水印 + 判定类型（淡入/贴片/半透明/文字）</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">03</div><div class="h">一键处理</div><div class="d">自动选算法，进度带剩余时间</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">04</div><div class="h">对比确认</div><div class="d">同步播放 + 质量小结</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">05</div><div class="h">导出</div><div class="d">按设定目录直接落盘，不弹框</div></div>
+  </div>
+  <h4>分支：系统不确定时，才交还控制权</h4>
+  <div class="tw">
+  <table>
+    <thead><tr><th>触发条件（内部信号）</th><th>界面行为</th><th>给用户的一句话</th></tr></thead>
+    <tbody>
+      <tr><td>自动定位置信度低（多候选分数接近）</td><td>进入编辑页，候选框以虚线高亮，用户点一下确认</td><td>「像是这三个位置，点一下确认」</td></tr>
+      <tr><td>紧致化覆盖 &lt; 15%（水印过淡/检测失败）</td><td>保留整框并提示，不静默丢弃</td><td>「水印比较淡，按整块处理更稳」</td></tr>
+      <tr><td>接缝比超阈值</td><td>结果页标红该区域，折叠展开"更强修复"</td><td>「这里边缘还有点生硬，要换个方式再试吗」</td></tr>
+      <tr><td>时序方案全部不适用</td><td>结果页说明原因并给替代路径</td><td>「画面一直在动，没有干净参考。可以框大一点，或用整块覆盖」</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4>批量流程</h4>
+  <div class="flow">
+    <div class="step"><div class="n">01</div><div class="h">建模板</div><div class="d">在首个文件上定好区域与参数，存为模板</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">02</div><div class="h">批量入队</div><div class="d">整目录拖入，套用模板（相对坐标）</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">03</div><div class="h">跑队列</div><div class="d">逐项状态、可暂停、失败重试</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">04</div><div class="h">看报告</div><div class="d">成功/失败/质量档位，导出 CSV</div></div>
+  </div>
+
+  <h3 id="s5-3">5.3 关键页面与交互（线框文字版）</h3>
+
+  <h4>页面 A：工作台</h4>
+  <div class="call">
+    <p><b>页面目标</b>：3 秒内知道"把文件拖这里就行"，并建立"本地处理"的信任。</p>
+    <p><b>布局</b>：顶部一行标题与设置入口 → 中央大面积拖入区（虚线框 + 一句「拖入视频或图片，其余交给我们」+ 副行「全部在本机处理，不上传」）→ 下方最近任务横向卡片（缩略图 / 文件名 / 状态点 / 耗时）→ 底部一行小字「仅处理你拥有权利的内容」。</p>
+    <p><b>交互</b>：拖入即进入编辑页；最近任务点击回到结果页；空状态时显示一段 15 秒的操作示意（静态图，不自动播放）。</p>
+  </div>
+
+  <h4>页面 B：编辑（默认极简）</h4>
+  <div class="call">
+    <p><b>页面目标</b>：确认处理范围，尽量不让人调参。</p>
+    <p><b>布局</b>：左栏 = 区域列表（序号 + 类型 + 备注）+ 三个按钮（智能检测 / 添加区域 / 清空）；中央 = 画布（滚轮缩放、空格拖拽、双击 1:1）；右栏 = 一个主按钮「开始处理」+ 一行当前判断「检测到：右下角半透明角标（淡入）」+ 折叠项「高级设置」。</p>
+    <p><b>交互</b>：默认工具是"选择"，不是"矩形"——用户第一反应应该是"确认"而不是"画框"；区域支持拖拽移动与四角缩放；Ctrl+Z 撤销；Delete 删除；高级设置里的每个参数右侧加一行浅灰说明（「羽化：边缘过渡宽度，越大越软」）。</p>
+    <p class="kv">对现有代码的最小改动路径：保留 <code>Canvas</code> 绘制与 <code>Shape</code> 体系，把右侧参数面板整体移入可折叠容器，默认 <code>tight/colorfit/temporal</code> 全开、<code>method=auto</code>，隐藏数值输入。</p>
+  </div>
+
+  <h4>页面 C：结果（这是重设计的重心）</h4>
+  <div class="call">
+    <p><b>页面目标</b>：让用户自己就能判断"行了 / 不行，再来一次"。</p>
+    <p><b>布局</b>：上方双联播放器（左原片 / 右成片，同一时间轴同步播放；可切"分割线"模式，拖动分界对比）→ 中部时间轴（上面是进度，下面是一条"风险条"：把逐帧接缝比映射为黄/红刻度）→ 下方质量小结卡（三档结论 + 具体一句话 + 位置缩略图）+ 底部主按钮「导出」、次按钮「再试一次（更强）」「再试一次（更保守）」。</p>
+    <p><b>交互</b>：点风险条上的红点直接跳到该帧并放大；导出默认写入设定目录，成功后 toast 提示 + 「打开文件夹」；「再试一次」保留区域与参数，只切换策略，不重新框选。</p>
+  </div>
+
+  <h4>页面 D：队列（当前完全缺失）</h4>
+  <div class="call">
+    <p><b>页面目标</b>：把 CLI 的批量能力搬到 GUI，且失败可收敛。</p>
+    <p><b>布局</b>：左侧模板下拉 + 「应用到全部」；中央任务表（文件名 / 时长 / 状态 / 质量档位 / 耗时 / 操作）；底部总进度 + 「全部暂停」「导出报告」。</p>
+    <p><b>交互</b>：并发固定为 1（解码+编码同时跑多路会互相抢 CPU，收益为负）；失败项显示原因标签（四类归因之一）+ 「重试」；关闭窗口时若有未完成任务，提示"继续后台完成 / 保留队列 / 放弃"。</p>
+  </div>
+
+  <h3 id="s5-4">5.4 五个关键产品决策（附取舍理由）</h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th style="width:150px">决策</th><th>做法</th><th>放弃的方案与原因</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><b>D1 渐进披露</b></td><td>默认不显示任何参数；只在系统判定"有风险"时把相关开关推到用户面前</td><td>放弃"保留全部参数在首屏"——它服务的是开发者自己，不是用户；也放弃"完全不给参数"——难水印需要出口</td></tr>
+      <tr><td class="nw"><b>D2 结果自证三件套</b></td><td>A/B 同步对比 + 风险时间轴 + 质量三档文案</td><td>放弃"只给 PSNR 数字"——用户无法把 36 dB 映射成"能不能发"；放弃"只给预览帧"——视频问题常出现在运动段</td></tr>
+      <tr><td class="nw"><b>D3 失败可解释</b></td><td>四类归因 + 每类一个动作 + 一键再试</td><td>放弃"弹错误原文"——<code>str(e)</code> 对用户零信息量；也放弃"静默输出次品"——一次劣质结果会永久损失信任</td></tr>
+      <tr><td class="nw"><b>D4 模板化批量</b></td><td>区域 + 参数存为模板，按相对坐标复用</td><td>放弃"每条都手动框"——同平台水印位置固定，重复劳动是最大的时间浪费</td></tr>
+      <tr><td class="nw"><b>D5 本地优先</b></td><td>无账号、无上传、无默认遥测；效果反馈为可选、可导出、默认关</td><td>放弃"云端增强默认开"——素材敏感度高于效果边际收益；也放弃"完全不做度量"——没有数据无法改进（改为本地记录、用户可导出）</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>质量文案映射表（把内部指标翻译成人话）</h4>
+  <div class="tw">
+  <table>
+    <thead><tr><th>内部指标</th><th>阈值</th><th>界面结论</th><th>建议动作</th></tr></thead>
+    <tbody>
+      <tr><td>边界台阶 <code>seam_step</code></td><td>&lt; 1.5</td><td><span class="b b-low">过渡自然</span></td><td>可直接导出</td></tr>
+      <tr><td>同上</td><td>1.5 – 2.5</td><td><span class="b b-mid">边缘略生硬</span></td><td>建议 +羽化 / 换更柔和方式</td></tr>
+      <tr><td>同上</td><td>&gt; 2.5</td><td><span class="b b-high">可能留有痕迹</span></td><td>推荐整块覆盖或扩大框选</td></tr>
+      <tr><td>区域-环色差</td><td>&lt; 6</td><td><span class="b b-low">色温一致</span></td><td>—</td></tr>
+      <tr><td>时序覆盖率</td><td>&lt; 50%</td><td><span class="b b-mid">水印与背景难分离</span></td><td>建议手动扩框或关时序</td></tr>
+      <tr><td>稳定帧窗</td><td>未找到</td><td><span class="b b-mid">画面持续运动</span></td><td>改用空间修复 / 分段处理</td></tr>
+      <tr><td>紧致化覆盖</td><td>&lt; 15%</td><td><span class="b b-low">按整块处理</span></td><td>无需操作</td></tr>
+      <tr><td>不透明贴片判定</td><td>触发</td><td><span class="b b-mid">该水印不透明</span></td><td>建议覆盖式处理，不做像素级还原</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3 id="s5-5">5.5 现有算法资产处置</h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th style="width:170px">资产</th><th style="width:70px">处置</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>时序三方案（fade / unmix / static）</td><td><span class="b b-keep">保留</span></td><td>核心差异化，改为"自动选择 + 结果页显示采用了哪种"（透明度换信任）</td></tr>
+      <tr><td>紧致掩码与不透明域判定</td><td><span class="b b-keep">保留</span></td><td>默认开启；把"检测失败保留原框"作为质量文案的一条</td></tr>
+      <tr><td>11 种空间修复</td><td><span class="b b-hide">收纳</span></td><td>默认 auto；人工可选入口移到专家面板，仅保留 3 个常用项（自动 / 覆盖 / 纹理搬运）</td></tr>
+      <tr><td>颜色一致性 + 接缝自检</td><td><span class="b b-keep">保留</span></td><td>自检结果升级为产品级质量信号，直接驱动 R-04 / R-05</td></tr>
+      <tr><td>平台位置先验</td><td><span class="b b-new">重构</span></td><td>从 <code>detect.py</code> 常量迁出为 <code>profiles/*.json</code>，支持用户自定义与热加载</td></tr>
+      <tr><td>CLI 六子命令</td><td><span class="b b-keep">保留</span></td><td>服务自动化与老用户；GUI 的批量能力与 <code>batch</code> 共用同一服务层</td></tr>
+      <tr><td>批量相对坐标</td><td><span class="b b-new">产品化</span></td><td>升级为"模板"，GUI 暴露、可命名、可导入导出</td></tr>
+      <tr><td>站点下载器（1,060 行）</td><td><span class="b b-cut">拆分/降级</span></td><td>移出主安装包，作为默认关闭的可选模块；主流程只保留"本地文件"与"直链下载"</td></tr>
+      <tr><td>安装器 + 卸载器</td><td><span class="b b-keep">保留</span></td><td>补版本检查与"当前版本/最新版本"提示，不做静默强更</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="s6">
+  <h2><span class="no">6</span>指标与口径</h2>
+  <p class="h2sub">先定"什么算成功"，再决定做什么功能。所有口径都要能被本地日志复算。</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th style="width:130px">指标</th><th>定义（口径）</th><th style="width:96px">目标</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><b>一次通过率</b><br><span class="kv">北极星</span></td><td>首次处理后直接导出的任务数 ÷ 有导出的任务数；重试后才导出的不计入分子</td><td class="nw">≥ 75%<span class="kv">（目标）</span></td><td>最贴近"用户满意"的单一数字，且不需要联网上报</td></tr>
+      <tr><td class="nw">自动定位命中率</td><td>自动框与真实水印框 IoU ≥ 0.5 的样本占比；抽样 100 条人工标注</td><td class="nw">≥ 85%<span class="kv">（目标）</span></td><td>衡量"一键"是否真的可用；按平台分别统计</td></tr>
+      <tr><td class="nw">处理耗时比</td><td>处理秒数 ÷ 片长秒数，1080p/30fps 归一化；取 P50 与 P90</td><td class="nw">P50 ≤ 1.0×<br>P90 ≤ 2.0×<span class="kv">（目标）</span></td><td>先测现有基线，再定是否可达；4K 单独统计</td></tr>
+      <tr><td class="nw">质量达标率</td><td>边界台阶 &lt; 1.5 且时序覆盖率 ≥ 50%（或空间路径色差 &lt; 6）的任务占比</td><td class="nw">≥ 80%<span class="kv">（目标）</span></td><td>与"一次通过率"互为校验：达标但用户不导出，说明文案或体验有问题</td></tr>
+      <tr><td class="nw">失败可恢复率</td><td>失败任务中经"再试一次/调整"最终成功导出的比例</td><td class="nw">≥ 60%<span class="kv">（目标）</span></td><td>衡量归因与建议是否真的起作用</td></tr>
+      <tr><td class="nw">崩溃/坏文件率</td><td>异常退出会话数 ÷ 总会话数；导出文件不可播放数 ÷ 导出数</td><td class="nw">≤ 0.5%<br>0</td><td>坏文件是不可接受的，必须为零</td></tr>
+      <tr><td class="nw">批量吞吐</td><td>单次队列中成功完成数 ÷ 入队数，以及队列中断次数</td><td class="nw">≥ 95%<span class="kv">（目标）</span></td><td>批量是 P1 场景，稳定性优先于速度</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4>数据来源</h4>
+  <p>全部来自本地 <code>task_log.jsonl</code>（每任务一条：输入时长/分辨率/采用方案/各项指标/耗时/是否重试/是否导出/归因标签）。默认不外传；设置页提供「导出诊断日志」按钮，用户主动分享才产生数据回流。</p>
+</section>
+
+<section id="s7">
+  <h2><span class="no">7</span>版本规划与 MVP</h2>
+  <p class="h2sub">先让人"用得顺、信得过"，再让人"批得动"。</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th style="width:78px">版本</th><th style="width:132px">主题</th><th>范围</th><th>出口标准</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><b>v1.1</b></td><td>一键可信</td><td>R-01 拖入 · R-02 一键 · R-03 对比 · R-04 质量小结 · R-05 归因与再试 · R-13 引导 · R-15 工程基线（Git/配置外置/服务层拆分起步）</td><td>新用户不看说明，3 次点击内出片；质量小结与实际肉眼判断一致率 ≥ 90%（10 人小样本）</td></tr>
+      <tr><td class="nw"><b>v1.2</b></td><td>批量交付</td><td>R-08 队列 · R-09 汇总报告 · R-10 输出策略 · R-06 取消/剩余时间 · R-07 撤销与快捷键</td><td>20 个文件一次入队跑完，报告与入队数一致，无残留半成品</td></tr>
+      <tr><td class="nw"><b>v1.3</b></td><td>专家与规则</td><td>R-11 专家面板 · R-12 先验表外置 · R-14 下载模块可选化 · R-16 高 DPI</td><td>新增平台位置仅改 JSON；默认安装不含站点逆向逻辑</td></tr>
+      <tr><td class="nw"><b>v2.0</b></td><td>（可选）增强</td><td>重模型修复、分段处理、macOS 或便携版</td><td>需先明确"是否接受上传"与"是否收费"，见第 12 节</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="call call-warn">
+    <span class="t">范围控制</span>
+    <p>v1.1 <b>不做</b>：多语言、云端处理、账号体系、自动更新、协作与分享。任何一条进入都意味着工期翻倍，且与"先立信任与一次通过率"的主线无关。</p>
+  </div>
+</section>
+
+<section id="s8">
+  <h2><span class="no">8</span>依赖与就绪度</h2>
+  <div class="tw">
+  <table>
+    <thead><tr><th>依赖项</th><th>所属</th><th>就绪状态</th><th style="width:88px">分级</th><th>最晚就绪</th><th>缺失时的替代</th></tr></thead>
+    <tbody>
+      <tr><td>ffmpeg（imageio-ffmpeg 内置）</td><td>编码管线</td><td><span class="b b-low">已就绪</span></td><td><span class="b b-must">阻塞</span></td><td>—</td><td>无（必须）</td></tr>
+      <tr><td>现有算法层（temporal / methods / colorfit）</td><td>核心能力</td><td><span class="b b-low">已就绪</span></td><td><span class="b b-must">阻塞</span></td><td>—</td><td>无（产品内核）</td></tr>
+      <tr><td>Git 版本管理与发版 tag</td><td>工程</td><td><span class="b b-high">未就绪</span></td><td><span class="b b-must">阻塞</span></td><td>v1.1 开发前</td><td>无（后续所有改动都不可回滚）</td></tr>
+      <tr><td>基准测试集（≥ 15 段真实素材 + 标注区域）</td><td>质量</td><td><span class="b b-mid">部分具备</span>（桌面有 1–4.mp4 与回归用例）</td><td><span class="b b-must">阻塞</span></td><td>v1.1 开发前</td><td>用现有 4 段 + 合成用例起步，后续补</td></tr>
+      <tr><td>平台先验配置化</td><td>自动定位</td><td><span class="b b-mid">待开发</span></td><td><span class="b b-should">并行</span></td><td>v1.2 末期</td><td>先保持硬编码，不影响 v1.1</td></tr>
+      <tr><td>视频播放/对比控件（Tk 内嵌播放或抽帧预览）</td><td>结果页</td><td><span class="b b-high">未就绪</span></td><td><span class="b b-must">阻塞</span></td><td>v1.1 中期</td><td>降级方案：抽 5 帧做"四联对比"</td></tr>
+      <tr><td>yt-dlp（若保留下载）</td><td>可选模块</td><td><span class="b b-mid">可用但需跟进</span></td><td><span class="b b-could">可绕过</span></td><td>按需</td><td>仅支持直链下载，其余引导用户本地准备文件</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="call call-warn">
+    <span class="t">最需要提前解决的一条</span>
+    <p><b>视频对比播放控件是 v1.1 的技术卡点</b>：Tk 没有原生视频播放能力，要么引入播放器依赖（体积与稳定性风险），要么用"按时间轴抽帧 + 逐帧步进"实现准实时对比。建议先做后者（零新依赖、可控），把"连续播放"作为 v1.2 增强。</p>
+  </div>
+</section>
+
+<section id="s9">
+  <h2><span class="no">9</span>风险登记册</h2>
+  <p class="h2sub">概率 × 影响，各 1–5 分；≥15 必须制定应对并持续跟踪。</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th style="width:58px">编号</th><th>风险</th><th style="width:68px">类别</th><th style="width:44px">概率</th><th style="width:44px">影响</th><th style="width:52px">等级</th><th>应对</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">RK-01</td><td>去水印能力被用于处理无授权内容，产生版权与平台规则争议</td><td>合规</td><td class="nw">4</td><td class="nw">5</td><td><span class="b b-high">20 高</span></td><td>首次引导与设置页明确"仅处理自有/已授权内容"；下载模块默认关闭且启用前需确认；不做 DRM/付费内容</td></tr>
+      <tr><td class="nw">RK-02</td><td>难水印（不透明大贴片、全程运动背景）效果达不到用户预期，导致流失</td><td>体验</td><td class="nw">4</td><td class="nw">5</td><td><span class="b b-high">20 高</span></td><td>失败归因 + 明确降级为"覆盖式处理"并如实告知；不承诺"100% 还原"</td></tr>
+      <tr><td class="nw">RK-03</td><td>Git 无提交历史，改动无法回滚，多人/多轮迭代互相踩踏</td><td>进度</td><td class="nw">5</td><td class="nw">3</td><td><span class="b b-high">15 高</span></td><td>v1.1 开发前完成首次提交与分支约定；每个版本打 tag</td></tr>
+      <tr><td class="nw">RK-04</td><td>经验参数散落，改 A 场景伤 B 场景，回归不可控</td><td>技术</td><td class="nw">4</td><td class="nw">4</td><td><span class="b b-high">16 高</span></td><td>建立基准集 + 每次改动跑 selftest/regression；魔数集中到配置并加注释溯源</td></tr>
+      <tr><td class="nw">RK-05</td><td>GUI 巨石继续膨胀，交互改造与算法改动互相阻塞</td><td>技术</td><td class="nw">4</td><td class="nw">3</td><td><span class="b b-mid">12 中</span></td><td>先拆服务层（任务编排/质量评估/配置），界面只做渲染与事件</td></tr>
+      <tr><td class="nw">RK-06</td><td>长视频/4K 处理耗时过长，用户中途放弃</td><td>体验</td><td class="nw">3</td><td class="nw">4</td><td><span class="b b-mid">12 中</span></td><td>剩余时间估算 + 可取消 + 分段预览（先出 10 秒样片确认效果）</td></tr>
+      <tr><td class="nw">RK-07</td><td>安装包 102 MB 且无更新通道，版本碎片化</td><td>运营</td><td class="nw">3</td><td class="nw">3</td><td><span class="b b-low">9 低</span></td><td>下载模块外置可显著瘦身；加"检查更新"轻提示（不静默强更）</td></tr>
+      <tr><td class="nw">RK-08</td><td>视频对比控件引入新依赖导致启动变慢或崩溃</td><td>技术</td><td class="nw">3</td><td class="nw">4</td><td><span class="b b-mid">12 中</span></td><td>先做抽帧步进方案；播放器作为可选组件，失败自动降级</td></tr>
+      <tr><td class="nw">RK-09</td><td>用户素材含未成年人/敏感场景，处理与留存产生合规问题</td><td>合规</td><td class="nw">2</td><td class="nw">5</td><td><span class="b b-mid">10 中</span></td><td>不采集、不上传、不缓存素材；最近任务缩略图可关闭并支持一键清除</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="s10">
+  <h2><span class="no">10</span>合规与边界</h2>
+  <div class="grid2">
+    <div class="box">
+      <h5>产品必须表达的边界</h5>
+      <ul>
+        <li>仅处理你拥有权利或已获得授权的内容</li>
+        <li>不提供 DRM / 付费会员内容的破解与下载</li>
+        <li>去掉他人署名、商标、版权标识后传播，可能构成侵权——提示但不替用户判断</li>
+        <li>平台水印往往同时是平台规则的一部分，二次发布需自行评估</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h5>隐私设计</h5>
+      <ul>
+        <li>素材零上传；除"检查更新"外无网络请求</li>
+        <li>不采集设备标识、不做默认遥测</li>
+        <li>本地任务日志可查看、可清除、可导出</li>
+        <li>卸载时清理配置与缓存（现有卸载器已具备基础）</li>
+      </ul>
+    </div>
+  </div>
+  <p style="margin-top:14px">本方案为产品设计参考，具体上线前请结合所在地法律法规与平台规则确认；文中所有指标数值均为待验证的目标值，不构成效果承诺。</p>
+</section>
+
+<section id="s11">
+  <h2><span class="no">11</span>验收标准与 RTM</h2>
+  <h4>关键用户故事与验收（Given / When / Then）</h4>
+  <div class="tw">
+  <table>
+    <thead><tr><th style="width:64px">编号</th><th>场景</th><th>验收标准</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">AC-01</td><td>一键主流程</td><td><b>Given</b> 一段 30 s /1080p、右下角半透明淡入水印的视频，<b>When</b> 拖入窗口并点「开始处理」，<b>Then</b> 自动定位水印、不出现任何参数控件、进度可见，输出成片音轨与原片一致，对比视图无肉眼可见残影。</td></tr>
+      <tr><td class="nw">AC-02</td><td>质量如实告知</td><td><b>Given</b> 水印为不透明贴片且接缝比超阈值，<b>When</b> 处理完成，<b>Then</b> 结果页显示"可能留有痕迹"并给出「换成覆盖式处理」入口；不得静默导出并宣称成功。</td></tr>
+      <tr><td class="nw">AC-03</td><td>失败可恢复</td><td><b>Given</b> 全程运动背景导致时序方案不可用，<b>When</b> 处理结束，<b>Then</b> 展示"画面持续运动"归因与两个具体动作，点击「再试一次」无需重新框选即可重跑。</td></tr>
+      <tr><td class="nw">AC-04</td><td>批量稳定</td><td><b>Given</b> 20 个同平台视频套用同一模板，<b>When</b> 队列执行，<b>Then</b> 单文件失败不影响其余，队列结束后报告条数与入队数一致，失败项带归因。</td></tr>
+      <tr><td class="nw">AC-05</td><td>中断安全</td><td><b>Given</b> 处理进行中，<b>When</b> 用户点取消或关闭窗口，<b>Then</b> 不留下半成品输出文件，原文件不被修改，队列状态可恢复。</td></tr>
+      <tr><td class="nw">AC-06</td><td>本地与合规</td><td><b>Given</b> 断网环境，<b>When</b> 处理本地文件，<b>Then</b> 全流程可用且无网络请求；首次启动可见内容权利提示，下载模块默认不可用。</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>需求追踪矩阵（RTM，节选）</h4>
+  <div class="tw">
+  <table>
+    <thead><tr><th style="width:64px">需求</th><th>描述</th><th style="width:96px">方案落点</th><th style="width:78px">验收</th><th style="width:86px">状态</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">R-01</td><td>拖拽导入</td><td>5.3 页面 A</td><td class="nw">AC-01</td><td class="nw">待开发</td></tr>
+      <tr><td class="nw">R-02</td><td>一键去水印</td><td>5.2 主流程 / D1</td><td class="nw">AC-01</td><td class="nw">待开发</td></tr>
+      <tr><td class="nw">R-03</td><td>结果对比</td><td>5.3 页面 C</td><td class="nw">AC-01</td><td class="nw">待开发</td></tr>
+      <tr><td class="nw">R-04</td><td>质量小结</td><td>5.4 文案映射表</td><td class="nw">AC-02</td><td class="nw">待开发</td></tr>
+      <tr><td class="nw">R-05</td><td>失败归因/再试</td><td>5.2 分支 / D3</td><td class="nw">AC-02 / AC-03</td><td class="nw">待开发</td></tr>
+      <tr><td class="nw">R-08</td><td>批量队列</td><td>5.3 页面 D</td><td class="nw">AC-04</td><td class="nw">待开发</td></tr>
+      <tr><td class="nw">R-06</td><td>取消/剩余时间</td><td>5.3 页面 D</td><td class="nw">AC-05</td><td class="nw">待开发</td></tr>
+      <tr><td class="nw">R-14</td><td>下载模块可选化</td><td>5.5 资产处置</td><td class="nw">AC-06</td><td class="nw">待决策（见 12）</td></tr>
+      <tr><td class="nw">R-15</td><td>工程基线</td><td>2.4 P-09 / P-10</td><td class="nw">—</td><td class="nw">待开发</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="s12">
+  <h2><span class="no">12</span>待决策事项</h2>
+  <p class="h2sub">这三条会改变方案骨架，建议先拍板再进入 PRD 展开。</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th style="width:52px">#</th><th>决策点</th><th>选项</th><th>对方案的影响</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">Q1</td><td><b>分发范围</b>：只自己用 / 小范围给同事朋友 / 公开发布 / 商业化</td><td>①自用 ②小圈子 ③公开免费 ④商业化</td><td>决定是否要做：更新通道、隐私政策、许可协议、多语言、崩溃上报。自用可砍掉一半工作量；商业化则 v2.0 的云端与计费必须提前进路线</td></tr>
+      <tr><td class="nw">Q2</td><td><b>下载模块去留</b>：保留站点解析 / 只留直链 / 完全移除</td><td>①保留但默认关 ②只留直链 ③移除</td><td>直接决定 1,060 行代码与合规风险的归属，也决定安装包能瘦多少（估计 30–40 MB）</td></tr>
+      <tr><td class="nw">Q3</td><td><b>品质承诺线</b>：遇到不可完美去除的水印怎么办</td><td>①如实告知 + 建议覆盖 ②默认自动转覆盖③只做像素级还原、做不到就报失败</td><td>决定"一次通过率"的分母口径，以及是否需要"覆盖式处理"作为一等功能</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="call call-accent">
+    <span class="t">下一步建议</span>
+    <p>① 先把现有 4 段测试素材 + 3 段补充素材建成基准集，跑一遍记录当前耗时与质量分布（这是所有目标值的基线）；② 完成首次 Git 提交与 v1.1 任务拆分；③ 方向确认后，按 15 段 PRD 结构展开 v1.1 的详细需求（功能编号 / 业务规则 / 异常清单 / 埋点）。</p>
+  </div>
+</section>
+
+<div class="foot">
+  WatermarkRemover 产品重设计方案 · v1 · 2026-10-20 · 司南（产品经理 Agent）<br>
+  本方案为产品设计参考，具体实施请结合公司合规与法务要求确认。
+</div>
+</main>
+</div>
+</body>
+</html>

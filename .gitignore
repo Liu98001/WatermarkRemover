@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+
+# PyInstaller
+build/
+dist/
+*.manifest
+
+# 打包产物
+packaging/app.zip
+packaging/__pycache__/
+
+# IDE / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

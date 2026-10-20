@@ -166,6 +166,12 @@ def build_mask(shapes: Sequence[Shape], W: int, H: int, opts: Options,
                     cov = float((acc[comp] > 0).sum()) \
                         / max(1, int(comp.sum()))
                     if cov < 0.15:
+                        # 只有"该域完全没检出"才是检测失败(水印太淡) →
+                        # 保留原框兜底。检出了少量笔画(如微博 ID 水印
+                        # 本体只占框 14%, 实测 r8 曾被这条规则误判回
+                        # 整框 113kpx)说明检测成功, 小掩码就是对的。
+                        if (acc[comp] > 0).any():
+                            continue
                         keep[comp] = np.maximum(keep[comp], mask[comp])
                         dropped += 1
                         continue
@@ -254,31 +260,6 @@ def build_mask(shapes: Sequence[Shape], W: int, H: int, opts: Options,
                     pass
             elif verbose:
                 print("[掩码] 紧致化未获有效结果, 保留原框")
-    # 高亮核心孔洞填充: 紧致化对"比背景亮极多的核心"(logo 星星/角尖,
-    # 实测 4.mp4 f30/f60 左上两个白点残留)可能只描到轮廓环, 内部留洞
-    # —— 修复后洞里是水印最亮的部分, 极其显眼。floodFill 从加边框的
-    # 外圈出发, 未被淹没的内部 0 区即孔洞; 只填小洞(<=2000px),
-    # 大片空洞是检测失败域, 交给上层逻辑。
-    try:
-        hh_, ww_ = mask.shape
-        ff2 = np.zeros((hh_ + 2, ww_ + 2), np.uint8)
-        ff2[1:-1, 1:-1] = (mask > 0).astype(np.uint8)
-        cv2.floodFill(ff2, np.zeros((hh_ + 4, ww_ + 4), np.uint8),
-                      (0, 0), 1)
-        holes = (ff2[1:-1, 1:-1] == 0)
-        if holes.any():
-            n_h, lab_h, st_h, _ = cv2.connectedComponentsWithStats(
-                holes.astype(np.uint8), connectivity=8)
-            fill = np.zeros(holes.shape, bool)
-            for ih in range(1, n_h):
-                if 8 <= int(st_h[ih, cv2.CC_STAT_AREA]) <= 2000:
-                    fill |= lab_h == ih
-            if fill.any():
-                mask = np.maximum(mask, fill.astype(np.uint8) * 255)
-                if verbose:
-                    print(f"[掩码] 孔洞填充 {int(fill.sum())}px")
-    except Exception:
-        pass
     w = feather_weights(mask, opts.feather)
     if verbose:
         bb = mask_bbox(mask, pad=0)
